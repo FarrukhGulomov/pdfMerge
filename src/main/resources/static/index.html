@@ -13,6 +13,21 @@
     .drag-over {
       background-color: #e2e8f0;
     }
+    .spinner {
+    border: 3px solid #f3f3f3;
+    border-radius: 50%;
+    border-top: 3px solid #3b82f6;
+    width: 24px;
+    height: 24px;
+    animation: spin 1s linear infinite;
+    display: none;
+    margin: 10px auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
   </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
@@ -45,6 +60,7 @@
     >
       Merge PDFs
     </button>
+    <div class="spinner" id="mergeSpinner"></div>
     <div id="mergeResult" class="mt-4 text-sm text-gray-700"></div>
   </form>
 
@@ -64,6 +80,7 @@
     >
       Convert to Word
     </button>
+    <div class="spinner" id="convertSpinner"></div>
     <div id="convertResult" class="mt-4 text-sm text-gray-700"></div>
   </form>
 </div>
@@ -78,6 +95,8 @@
   const convertForm = document.getElementById('convertForm');
   const fileInput = document.getElementById('mergeFiles');
   const fileList = document.getElementById('fileList');
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB
   let filesArray = [];
 
   // Tab switching logic
@@ -143,74 +162,111 @@
     renderFileList();
   }
 
+  function validateFile(file) {
+    if (file.size > MAX_FILE_SIZE) {
+        throw new Error(`File ${file.name} exceeds maximum size of 10MB`);
+    }
+    if (!file.type.includes('pdf')) {
+        throw new Error(`File ${file.name} is not a PDF file`);
+    }
+}
+
   // Merge PDFs Logic
   mergeForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (filesArray.length < 2) {
-      alert('Please select at least 2 PDF files to merge!');
-      return;
-    }
-
-    const formData = new FormData();
-    filesArray.forEach((file) => formData.append('files', file));
-
+    const mergeSpinner = document.getElementById('mergeSpinner');
+    const resultDiv = document.getElementById('mergeResult');
+    
     try {
-      const response = await fetch('/api/pdf/merge', {
-        method: 'POST',
-        body: formData
-      });
+        if (filesArray.length < 2) {
+            throw new Error('Please select at least 2 PDF files to merge!');
+        }
 
-      if (response.ok) {
+        let totalSize = 0;
+        filesArray.forEach(file => {
+            validateFile(file);
+            totalSize += file.size;
+        });
+
+        if (totalSize > MAX_TOTAL_SIZE) {
+            throw new Error('Total file size exceeds 50MB limit');
+        }
+
+        const formData = new FormData();
+        filesArray.forEach(file => formData.append('files', file));
+
+        mergeSpinner.style.display = 'block';
+        resultDiv.textContent = 'Processing...';
+
+        const response = await fetch('/api/pdf/merge', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to merge PDFs');
+        }
+
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.download = 'merged.pdf';
         link.click();
-
-        document.getElementById('mergeResult').textContent = 'Merge successful! The file has been downloaded.';
-      } else {
-        document.getElementById('mergeResult').textContent = 'An error occurred while merging the PDFs.';
-      }
+        resultDiv.textContent = 'Files merged successfully!';
     } catch (error) {
-      console.error(error);
-      document.getElementById('mergeResult').textContent = 'An error occurred while merging the PDFs.';
+        resultDiv.textContent = `Error: ${error.message}`;
+        resultDiv.classList.add('text-red-500');
+    } finally {
+        mergeSpinner.style.display = 'none';
     }
-  });
-  convertForm.addEventListener('submit', async (e) => {
+});
+
+
+convertForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const file = document.getElementById('convertFile').files[0];
-    if (!file) {
-      alert('Please select a PDF file to convert!');
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-
+    const convertSpinner = document.getElementById('convertSpinner');
+    const resultDiv = document.getElementById('convertResult');
+    
     try {
-      const response = await fetch('/api/convert/pdf-to-word', {
-        method: 'POST',
-        body: formData
-      });
+        const file = document.getElementById('convertFile').files[0];
+        if (!file) {
+            throw new Error('Please select a PDF file to convert!');
+        }
 
-      if (response.ok) {
+        validateFile(file);
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        convertSpinner.style.display = 'block';
+        resultDiv.textContent = 'Converting...';
+
+        const response = await fetch('/api/convert/pdf-to-word', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to convert PDF');
+        }
+
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.download = 'converted.docx';
         link.click();
-
-        document.getElementById('convertResult').textContent = 'Conversion successful! The file has been downloaded.';
-      } else {
-        document.getElementById('convertResult').textContent = 'An error occurred while converting the PDF.';
-      }
+        resultDiv.textContent = 'File converted successfully!';
     } catch (error) {
-      console.error(error);
-      document.getElementById('convertResult').textContent = 'An error occurred while converting the PDF.';
+        resultDiv.textContent = `Error: ${error.message}`;
+        resultDiv.classList.add('text-red-500');
+    } finally {
+        convertSpinner.style.display = 'none';
     }
-  });
+});
 </script>
 </body>
 </html>
