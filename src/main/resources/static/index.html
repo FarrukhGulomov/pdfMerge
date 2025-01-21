@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Tools: Merge & Convert</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .drag-item {
+      cursor: grab;
+    }
+    .drag-over {
+      background-color: #e2e8f0;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+<div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-lg">
+  <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">PDF Tools: Merge & Convert</h1>
+
+  <!-- Tabs for selecting operation -->
+  <div class="mb-6 flex justify-around border-b">
+    <button id="mergeTab" class="py-2 px-4 border-b-2 border-blue-500 font-medium text-blue-500 focus:outline-none">Merge PDFs</button>
+    <button id="convertTab" class="py-2 px-4 text-gray-500 hover:text-blue-500 focus:outline-none">Convert to Word</button>
+  </div>
+
+  <!-- Merge PDFs Form -->
+  <form id="mergeForm" class="space-y-4">
+    <input
+            type="file"
+            id="mergeFiles"
+            name="files"
+            multiple
+            accept="application/pdf"
+            required
+            class="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none"
+    >
+    <ul id="fileList" class="space-y-2">
+      <!-- Uploaded files will appear here -->
+    </ul>
+    <button
+            type="submit"
+            class="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg transition duration-200"
+    >
+      Merge PDFs
+    </button>
+    <div id="mergeResult" class="mt-4 text-sm text-gray-700"></div>
+  </form>
+
+  <!-- Convert PDF to Word Form -->
+  <form id="convertForm" class="space-y-4 hidden">
+    <input
+            type="file"
+            id="convertFile"
+            name="file"
+            accept="application/pdf"
+            required
+            class="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none"
+    >
+    <button
+            type="submit"
+            class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition duration-200"
+    >
+      Convert to Word
+    </button>
+    <div id="convertResult" class="mt-4 text-sm text-gray-700"></div>
+  </form>
+</div>
+<footer class="bg-gray-100 text-center py-4 text-sm text-gray-600">
+  <p>2025 All Rights Reserved.</p>
+  <p>Developed by <a href="https://www.farukh.uz" class="text-blue-500 hover:underline">Farrukh Gulomov</a></p>
+</footer>
+<script>
+  const mergeTab = document.getElementById('mergeTab');
+  const convertTab = document.getElementById('convertTab');
+  const mergeForm = document.getElementById('mergeForm');
+  const convertForm = document.getElementById('convertForm');
+  const fileInput = document.getElementById('mergeFiles');
+  const fileList = document.getElementById('fileList');
+  let filesArray = [];
+
+  // Tab switching logic
+  mergeTab.addEventListener('click', () => {
+    mergeTab.classList.add('border-blue-500', 'text-blue-500');
+    convertTab.classList.remove('border-blue-500', 'text-blue-500');
+    convertTab.classList.add('text-gray-500');
+    mergeForm.classList.remove('hidden');
+    convertForm.classList.add('hidden');
+  });
+
+  convertTab.addEventListener('click', () => {
+    convertTab.classList.add('border-blue-500', 'text-blue-500');
+    mergeTab.classList.remove('border-blue-500', 'text-blue-500');
+    mergeTab.classList.add('text-gray-500');
+    convertForm.classList.remove('hidden');
+    mergeForm.classList.add('hidden');
+  });
+
+  // Handle file input and display uploaded files
+  fileInput.addEventListener('change', function () {
+    filesArray = Array.from(fileInput.files);
+    renderFileList();
+  });
+
+  function renderFileList() {
+    fileList.innerHTML = '';
+    filesArray.forEach((file, index) => {
+      const li = document.createElement('li');
+      li.textContent = file.name;
+      li.draggable = true;
+      li.classList.add('p-2', 'bg-gray-100', 'rounded-lg', 'drag-item', 'border', 'border-gray-300');
+      li.dataset.index = index;
+
+      li.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', index);
+      });
+
+      li.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        li.classList.add('drag-over');
+      });
+
+      li.addEventListener('dragleave', () => {
+        li.classList.remove('drag-over');
+      });
+
+      li.addEventListener('drop', (e) => {
+        e.preventDefault();
+        li.classList.remove('drag-over');
+        const draggedIndex = e.dataTransfer.getData('text/plain');
+        swapFiles(draggedIndex, index);
+      });
+
+      fileList.appendChild(li);
+    });
+  }
+
+  function swapFiles(fromIndex, toIndex) {
+    const fromFile = filesArray[fromIndex];
+    filesArray.splice(fromIndex, 1);
+    filesArray.splice(toIndex, 0, fromFile);
+    renderFileList();
+  }
+
+  // Merge PDFs Logic
+  mergeForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (filesArray.length < 2) {
+      alert('Please select at least 2 PDF files to merge!');
+      return;
+    }
+
+    const formData = new FormData();
+    filesArray.forEach((file) => formData.append('files', file));
+
+    try {
+      const response = await fetch('/api/pdf/merge', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'merged.pdf';
+        link.click();
+
+        document.getElementById('mergeResult').textContent = 'Merge successful! The file has been downloaded.';
+      } else {
+        document.getElementById('mergeResult').textContent = 'An error occurred while merging the PDFs.';
+      }
+    } catch (error) {
+      console.error(error);
+      document.getElementById('mergeResult').textContent = 'An error occurred while merging the PDFs.';
+    }
+  });
+  convertForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const file = document.getElementById('convertFile').files[0];
+    if (!file) {
+      alert('Please select a PDF file to convert!');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch('/api/convert/pdf-to-word', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'converted.docx';
+        link.click();
+
+        document.getElementById('convertResult').textContent = 'Conversion successful! The file has been downloaded.';
+      } else {
+        document.getElementById('convertResult').textContent = 'An error occurred while converting the PDF.';
+      }
+    } catch (error) {
+      console.error(error);
+      document.getElementById('convertResult').textContent = 'An error occurred while converting the PDF.';
+    }
+  });
+</script>
+</body>
+</html>
