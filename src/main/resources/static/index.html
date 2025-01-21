@@ -1,93 +1,144 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PDF Tools: Merge & Convert</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    .drag-item {
-      cursor: grab;
-    }
-    .drag-over {
-      background-color: #e2e8f0;
-    }
-    .spinner {
-    border: 3px solid #f3f3f3;
-    border-radius: 50%;
-    border-top: 3px solid #3b82f6;
-    width: 24px;
-    height: 24px;
-    animation: spin 1s linear infinite;
-    display: none;
-    margin: 10px auto;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Tools: Merge & Convert</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: #f0f2f5;
+        }
+        .main-container {
+            flex: 1;
+        }
+        .drop-zone {
+            border: 2px dashed #4CAF50;
+            transition: all 0.3s ease;
+        }
+        .drop-zone:hover {
+            border-color: #2E7D32;
+            background-color: rgba(76, 175, 80, 0.1);
+        }
+        .tab-active {
+            border-bottom: 2px solid #4CAF50;
+            color: #4CAF50;
+        }
+        .drag-item {
+            cursor: grab;
+        }
+        .drag-over {
+            background-color: #e2e8f0;
+        }
+        .spinner {
+            display: none;
+        }
+    </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
-<div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-lg">
-  <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">PDF Tools: Merge & Convert</h1>
+<body>
+    <!-- Header -->
+    <header class="bg-white shadow-sm">
+        <div class="container mx-auto px-4 py-4">
+            <h1 class="text-2xl font-bold text-gray-800">PDF Tools: Merge & Convert</h1>
+        </div>
+    </header>
 
-  <!-- Tabs for selecting operation -->
-  <div class="mb-6 flex justify-around border-b">
-    <button id="mergeTab" class="py-2 px-4 border-b-2 border-blue-500 font-medium text-blue-500 focus:outline-none">Merge PDFs</button>
-    <button id="convertTab" class="py-2 px-4 text-gray-500 hover:text-blue-500 focus:outline-none">Convert to Word</button>
+    <!-- Main Content -->
+    <div class="main-container container mx-auto px-4 py-8">
+        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6">
+            <!-- Tabs -->
+            <div class="flex border-b mb-6">
+                <button id="mergeTab" class="px-6 py-2 tab-active font-medium">Merge PDFs</button>
+                <button id="convertTab" class="px-6 py-2 text-gray-500 font-medium">Convert to Word</button>
+            </div>
+
+            <!-- Merge PDFs Form -->
+            <form id="mergeForm" class="space-y-4">
+                <div class="drop-zone rounded-lg p-8 text-center">
+                    <div id="dropText" class="text-gray-600 mb-4">
+                        <p class="text-lg mb-2">Drag & drop PDF files here</p>
+                        <p class="text-sm">or</p>
+                    </div>
+                    <input type="file" id="mergeFiles" multiple accept=".pdf" class="hidden">
+                    <button onclick="document.getElementById('mergeFiles').click()" type="button"
+                            class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-6 rounded-lg transition duration-300">
+                        Choose Files
+                    </button>
+                </div>
+
+                <div id="fileList" class="space-y-2"></div>
+
+                <button type="submit" 
+                        class="w-full bg-green-500 hover:bg-green-600 text-white font-medium py-3 px-6 rounded-lg transition duration-300 flex items-center justify-center">
+                    <span id="mergeSpinner" class="hidden mr-2">
+                        <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </span>
+                    Merge PDFs
+                </button>
+                <div id="mergeResult" class="mt-4 text-center font-medium"></div>
+            </form>
+
+            <!-- Convert PDF to Word Form -->
+            <form id="convertForm" class="space-y-4 hidden">
+                <div class="drop-zone rounded-lg p-8 text-center">
+                    <div class="text-gray-600 mb-4">
+                        <p class="text-lg mb-2">Drag & drop PDF file here</p>
+                        <p class="text-sm">or</p>
+                    </div>
+                    <input type="file" id="convertFile" accept=".pdf" class="hidden">
+                    <button onclick="document.getElementById('convertFile').click()" type="button"
+                            class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-6 rounded-lg transition duration-300">
+                        Choose File
+                    </button>
+                </div>
+                <button type="submit" 
+                        class="w-full bg-green-500 hover:bg-green-600 text-white font-medium py-3 px-6 rounded-lg transition duration-300 flex items-center justify-center">
+                    <span id="convertSpinner" class="hidden mr-2">
+                        <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </span>
+                    Convert to Word
+                </button>
+                <div id="convertResult" class="mt-4 text-center font-medium"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <!-- Footer -->
+<footer class="bg-gradient-to-r from-green-600 to-green-800 mt-auto">
+  <div class="container mx-auto px-4 py-6">
+      <div class="text-center">
+          <p class="text-white text-lg font-medium mb-2">© 2025 All Rights Reserved.</p>
+          <div class="flex items-center justify-center space-x-2">
+              <p class="text-white text-lg">Developed by</p>
+              <a href="https://www.farukh.uz" 
+                 class="text-xl font-semibold text-white hover:text-green-200 transition duration-300 flex items-center">
+                  Farrukh Gulomov
+                  <svg xmlns="http://www.w3.org/2000/svg" 
+                       class="h-5 w-5 ml-1" 
+                       fill="none" 
+                       viewBox="0 0 24 24" 
+                       stroke="currentColor">
+                      <path stroke-linecap="round" 
+                            stroke-linejoin="round" 
+                            stroke-width="2" 
+                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+              </a>
+          </div>
+      </div>
   </div>
-
-  <!-- Merge PDFs Form -->
-  <form id="mergeForm" class="space-y-4">
-    <input
-            type="file"
-            id="mergeFiles"
-            name="files"
-            multiple
-            accept="application/pdf"
-            required
-            class="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none"
-    >
-    <ul id="fileList" class="space-y-2">
-      <!-- Uploaded files will appear here -->
-    </ul>
-    <button
-            type="submit"
-            class="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg transition duration-200"
-    >
-      Merge PDFs
-    </button>
-    <div class="spinner" id="mergeSpinner"></div>
-    <div id="mergeResult" class="mt-4 text-sm text-gray-700"></div>
-  </form>
-
-  <!-- Convert PDF to Word Form -->
-  <form id="convertForm" class="space-y-4 hidden">
-    <input
-            type="file"
-            id="convertFile"
-            name="file"
-            accept="application/pdf"
-            required
-            class="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none"
-    >
-    <button
-            type="submit"
-            class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition duration-200"
-    >
-      Convert to Word
-    </button>
-    <div class="spinner" id="convertSpinner"></div>
-    <div id="convertResult" class="mt-4 text-sm text-gray-700"></div>
-  </form>
-</div>
-<footer class="bg-gray-100 text-center py-4 text-sm text-gray-600">
-  <p>2025 All Rights Reserved.</p>
-  <p>Developed by <a href="https://www.farukh.uz" class="text-blue-500 hover:underline">Farrukh Gulomov</a></p>
 </footer>
+
 <script>
   const mergeTab = document.getElementById('mergeTab');
   const convertTab = document.getElementById('convertTab');
@@ -213,10 +264,18 @@ const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB
         const link = document.createElement('a');
         link.href = url;
         link.download = 'merged.pdf';
+        link.style.display = 'none';
+        document.body.appendChild(link);
         link.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(link);
+
         resultDiv.textContent = 'Files merged successfully!';
+        resultDiv.classList.remove('text-red-500');
+        resultDiv.classList.add('text-green-500');
     } catch (error) {
         resultDiv.textContent = `Error: ${error.message}`;
+        resultDiv.classList.remove('text-green-500');
         resultDiv.classList.add('text-red-500');
     } finally {
         mergeSpinner.style.display = 'none';
