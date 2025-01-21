@@ -62,7 +62,7 @@
                         <p class="text-lg mb-2">Drag & drop PDF files here</p>
                         <p class="text-sm">or</p>
                     </div>
-                    <input type="file" id="mergeFiles" multiple accept=".pdf" class="hidden">
+                    <input type="file" id="mergeFiles" multiple accept="application/pdf,.pdf" class="hidden" capture="filesystem">
                     <button onclick="document.getElementById('mergeFiles').click()" type="button"
                             class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-6 rounded-lg transition duration-300">
                         Choose Files
@@ -91,7 +91,7 @@
                         <p class="text-lg mb-2">Drag & drop PDF file here</p>
                         <p class="text-sm">or</p>
                     </div>
-                    <input type="file" id="convertFile" accept=".pdf" class="hidden">
+                    <input type="file" id="convertFile" accept="application/pdf,.pdf" class="hidden" capture="filesystem">
                     <button onclick="document.getElementById('convertFile').click()" type="button"
                             class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-6 rounded-lg transition duration-300">
                         Choose File
@@ -140,6 +140,34 @@
 </footer>
 
 <script>
+function validateFiles(files) {
+    let totalSize = 0;
+    const errors = [];
+
+    for (const file of files) {
+        // Check file type
+        if (!file.type || !file.type.includes('pdf')) {
+            errors.push(`${file.name} is not a PDF file`);
+            continue;
+        }
+
+        // Check individual file size
+        if (file.size > MAX_FILE_SIZE) {
+            errors.push(`${file.name} exceeds 10MB limit`);
+            continue;
+        }
+
+        totalSize += file.size;
+    }
+
+    // Check total size
+    if (totalSize > MAX_TOTAL_SIZE) {
+        errors.push('Total file size exceeds 50MB limit');
+    }
+
+    return errors;
+}
+  
   const mergeTab = document.getElementById('mergeTab');
   const convertTab = document.getElementById('convertTab');
   const mergeForm = document.getElementById('mergeForm');
@@ -149,6 +177,8 @@
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB
   let filesArray = [];
+
+
 
   // Tab switching logic
   mergeTab.addEventListener('click', () => {
@@ -227,26 +257,24 @@ const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB
     e.preventDefault();
     const mergeSpinner = document.getElementById('mergeSpinner');
     const resultDiv = document.getElementById('mergeResult');
-    
+
     try {
         if (filesArray.length < 2) {
-            throw new Error('Please select at least 2 PDF files to merge!');
+            throw new Error('Please select at least 2 PDF files');
         }
 
-        let totalSize = 0;
-        filesArray.forEach(file => {
-            validateFile(file);
-            totalSize += file.size;
-        });
-
-        if (totalSize > MAX_TOTAL_SIZE) {
-            throw new Error('Total file size exceeds 50MB limit');
+        // Validate files
+        const errors = validateFiles(filesArray);
+        if (errors.length > 0) {
+            throw new Error(errors.join('\n'));
         }
 
         const formData = new FormData();
-        filesArray.forEach(file => formData.append('files', file));
+        filesArray.forEach(file => {
+            formData.append('files', file);
+        });
 
-        mergeSpinner.style.display = 'block';
+        mergeSpinner.classList.remove('hidden');
         resultDiv.textContent = 'Processing...';
 
         const response = await fetch('/api/pdf/merge', {
@@ -261,45 +289,45 @@ const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB
 
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'merged.pdf';
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'merged.pdf';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
-        document.body.removeChild(link);
 
         resultDiv.textContent = 'Files merged successfully!';
-        resultDiv.classList.remove('text-red-500');
-        resultDiv.classList.add('text-green-500');
+        resultDiv.className = 'mt-4 text-center font-medium text-green-500';
     } catch (error) {
-        resultDiv.textContent = `Error: ${error.message}`;
-        resultDiv.classList.remove('text-green-500');
-        resultDiv.classList.add('text-red-500');
+        resultDiv.textContent = error.message;
+        resultDiv.className = 'mt-4 text-center font-medium text-red-500';
     } finally {
-        mergeSpinner.style.display = 'none';
+        mergeSpinner.classList.add('hidden');
     }
 });
-
 
 convertForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const convertSpinner = document.getElementById('convertSpinner');
     const resultDiv = document.getElementById('convertResult');
-    
+    const file = document.getElementById('convertFile').files[0];
+
     try {
-        const file = document.getElementById('convertFile').files[0];
         if (!file) {
-            throw new Error('Please select a PDF file to convert!');
+            throw new Error('Please select a PDF file');
         }
 
-        validateFile(file);
+        // Validate file
+        const errors = validateFiles([file]);
+        if (errors.length > 0) {
+            throw new Error(errors.join('\n'));
+        }
 
         const formData = new FormData();
         formData.append('file', file);
 
-        convertSpinner.style.display = 'block';
+        convertSpinner.classList.remove('hidden');
         resultDiv.textContent = 'Converting...';
 
         const response = await fetch('/api/convert/pdf-to-word', {
@@ -308,22 +336,26 @@ convertForm.addEventListener('submit', async (e) => {
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to convert PDF');
+            throw new Error('Failed to convert PDF');
         }
 
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'converted.docx';
-        link.click();
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'converted.docx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
         resultDiv.textContent = 'File converted successfully!';
+        resultDiv.className = 'mt-4 text-center font-medium text-green-500';
     } catch (error) {
-        resultDiv.textContent = `Error: ${error.message}`;
-        resultDiv.classList.add('text-red-500');
+        resultDiv.textContent = error.message;
+        resultDiv.className = 'mt-4 text-center font-medium text-red-500';
     } finally {
-        convertSpinner.style.display = 'none';
+        convertSpinner.classList.add('hidden');
     }
 });
 </script>
